@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Commonweal — pass, scanner &amp; admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.0/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --ink:#0A2630;--ink2:#103743;--surface:#EEF4F3;--card:#FFFFFF;
+    --teal:#1F94A8;--teal-deep:#0E6B7C;--line:#D6E2E1;
+    --allow:#1B7A4F;--allow-bg:#E2F2EA;--deny:#B23A20;--deny-bg:#FBE7E0;
+    --warn:#9A6A12;--warn-bg:#FBF0DA;--sand:#E3C293;--muted:#5C7980;--radius:18px;
+  }
+  *{box-sizing:border-box}html,body{margin:0}
+  body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:var(--ink);
+    background:var(--surface);-webkit-font-smoothing:antialiased;line-height:1.45;
+    padding:18px 16px 48px;max-width:540px;margin:0 auto}
+  .brand{display:flex;align-items:baseline;gap:10px;margin:2px 2px 2px}
+  .brand h1{font-family:Fraunces,Georgia,serif;font-weight:600;font-size:30px;letter-spacing:-.01em;margin:0}
+  .brand .tag{color:var(--muted);font-size:12.5px;font-weight:500}
+  .picker{display:flex;align-items:center;gap:8px;margin:14px 2px 14px;font-size:13px;color:var(--muted)}
+  .picker select{flex:1;font:inherit;padding:9px 10px;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--ink)}
+  .banner{display:none;background:var(--warn-bg);border:1px solid #ecd9a8;color:#6c4e0c;
+    padding:12px 14px;border-radius:12px;font-size:13px;margin:10px 0 4px}
+  .banner.on{display:block}
+  .tabs{display:flex;gap:6px;background:#dfeae9;padding:5px;border-radius:14px;margin-bottom:16px}
+  .tabs button{flex:1;border:0;background:transparent;font:inherit;font-weight:600;font-size:14px;
+    color:var(--muted);padding:10px 8px;border-radius:10px;cursor:pointer;transition:.15s}
+  .tabs button[aria-selected="true"]{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(10,38,48,.12)}
+  .tabs button:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px;box-shadow:0 1px 2px rgba(10,38,48,.04)}
+  .panel{display:none}.panel.on{display:block}
+  .sectitle{font-family:Fraunces,serif;font-weight:600;font-size:17px;margin:0 0 4px}
+  .secsub{color:var(--muted);font-size:12.5px;margin:0 0 14px}
+
+  /* pass */
+  .passhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+  .passhead .who{font-weight:600;font-size:15px}.passhead .sub{color:var(--muted);font-size:12px;margin-top:1px}
+  .chip{font-size:12px;font-weight:600;padding:5px 11px;border-radius:999px;white-space:nowrap}
+  .chip.active{color:var(--allow);background:var(--allow-bg)}
+  .chip.suspended{color:var(--warn);background:var(--warn-bg)}
+  .chip.revoked{color:var(--deny);background:var(--deny-bg)}
+  .qrwrap{display:flex;gap:16px;align-items:stretch}
+  .qrbox{flex:0 0 auto;width:200px;height:200px;border-radius:14px;border:1px solid var(--line);
+    background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden;position:relative}
+  .qrbox.dead{filter:grayscale(1) opacity(.28)}.qrbox img,.qrbox canvas{display:block}
+  .deadstamp{position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+    font-family:Fraunces,serif;font-weight:600;font-size:18px;color:var(--deny);
+    background:rgba(251,231,224,.62);text-align:center;padding:8px}
+  .qrbox.dead .deadstamp{display:flex}
+  .tide{flex:1;min-width:0;border-radius:14px;border:1px solid var(--line);position:relative;
+    overflow:hidden;background:linear-gradient(180deg,#f7fbfb,#eef5f5)}
+  .tidefill{position:absolute;left:0;right:0;bottom:0;height:100%;
+    background:linear-gradient(180deg,#54bcce,#1F94A8);transition:height .25s linear}
+  .tidefill::before{content:"";position:absolute;top:-6px;left:0;right:0;height:6px;background:rgba(255,255,255,.5);border-radius:50%}
+  .tidetext{position:absolute;inset:0;padding:12px;display:flex;flex-direction:column;justify-content:space-between;z-index:2}
+  .tidetext .lbl{font-size:11px;font-weight:600;color:var(--ink2);text-transform:uppercase;letter-spacing:.06em}
+  .tidetext .secs{font-family:Fraunces,serif;font-size:34px;font-weight:600;line-height:1}
+  .tidetext .note{font-size:11.5px;color:var(--ink2)}
+  .meta{margin-top:14px;font-size:12px;color:var(--muted)}
+  .notice{display:none;margin-top:14px;border-radius:14px;padding:14px 16px;border:1px solid}
+  .notice.suspended{background:var(--warn-bg);border-color:#ecd9a8;color:#5c4408}
+  .notice.revoked{background:var(--deny-bg);border-color:#f0c8bb;color:#7a2c18}
+  .notice .n-title{font-family:Fraunces,serif;font-weight:600;font-size:16px;margin-bottom:6px}
+  .notice .n-line{font-size:13.5px;margin-top:3px}
+  .notice .n-line b{font-weight:600}
+  .notice .n-note{font-size:13px;font-style:italic;margin-top:8px;opacity:.9}
+  .notice .n-foot{font-size:12px;margin-top:10px;opacity:.8}
+
+  /* scanner */
+  #reader{border-radius:14px;overflow:hidden;border:1px solid var(--line)}
+  .scanstage{margin-top:14px;min-height:150px;border-radius:14px;border:1px dashed var(--line);
+    display:flex;align-items:center;justify-content:center;text-align:center;padding:18px;background:#f7fbfb}
+  .scanstage.allow{background:var(--allow-bg);border-style:solid;border-color:#bfe2ce}
+  .scanstage.deny{background:var(--deny-bg);border-style:solid;border-color:#f0c8bb}
+  .result .mark{font-size:46px;line-height:1;margin-bottom:4px}
+  .result .verdict{font-family:Fraunces,serif;font-size:26px;font-weight:600}
+  .result.allow .verdict{color:var(--allow)}.result.deny .verdict{color:var(--deny)}
+  .result .detail{font-size:14px;margin-top:6px;color:var(--ink2)}
+  .result .sub{font-size:12px;margin-top:6px;color:var(--muted)}
+  .idle{color:var(--muted);font-size:14px;max-width:260px}
+
+  /* controls */
+  .btn{width:100%;border:0;font:inherit;font-weight:600;font-size:15px;padding:13px;border-radius:13px;
+    cursor:pointer;transition:.12s;color:#fff;background:var(--teal-deep);margin-top:12px}
+  .btn:active{transform:translateY(1px)}.btn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  .btn.ghost{background:#fff;color:var(--ink2);border:1px solid var(--line)}
+  .field{margin-top:14px}.field label{display:block;font-size:12.5px;font-weight:600;color:var(--ink2);margin-bottom:6px}
+  .field select,.field input,.field textarea{width:100%;font:inherit;font-size:14px;padding:11px 12px;
+    border-radius:11px;border:1px solid var(--line);background:#fff;color:var(--ink)}
+  .field textarea{resize:vertical;min-height:64px}
+  .row{display:flex;gap:8px}.row>*{flex:1}
+  .a-warn{color:var(--warn);background:var(--warn-bg)}
+  .a-bar{color:#fff;background:var(--deny)}
+  .a-reinstate{color:var(--allow);background:var(--allow-bg)}
+  .statusline{margin-top:14px;font-size:13px;color:var(--ink2)}.statusline b{font-weight:600}
+  hr{border:0;border-top:1px solid var(--line);margin:18px 0}
+  .hist{margin-top:4px}
+  .hist .item{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:8px;font-size:13px}
+  .hist .item .top{display:flex;justify-content:space-between;gap:8px}
+  .hist .item .act{font-weight:600}
+  .hist .item .act.suspend,.hist .item .act.revoke{color:var(--deny)}
+  .hist .item .act.warning{color:var(--warn)}.hist .item .act.reinstate{color:var(--allow)}
+  .hist .item .when{color:var(--muted);font-size:11.5px;white-space:nowrap}
+  .hist .item .infr{color:var(--ink2);margin-top:3px}
+  .hist .item .nt{color:var(--muted);margin-top:2px;font-style:italic}
+  .hist .empty{color:var(--muted);font-size:13px;margin-top:8px}
+  @media (prefers-reduced-motion:reduce){.tidefill{transition:none}}
+  @media (max-width:380px){.qrwrap{flex-direction:column}.qrbox{width:100%;height:auto;aspect-ratio:1}}
+</style>
+</head>
+<body>
+<div class="brand"><h1>Commonweal</h1><span class="tag">free pool access · shared responsibility</span></div>
+
+<div class="banner" id="banner">Add your Supabase <b>Project URL</b> and <b>anon key</b> in the CONFIG block near the top of this file, then reload.</div>
+
+<div class="picker">
+  <span>Pass:</span>
+  <select id="passpick" onchange="onPickPass()"></select>
+</div>
+
+<div class="tabs" role="tablist" aria-label="View">
+  <button role="tab" id="t-pass" aria-selected="true" onclick="show('pass')">Citizen pass</button>
+  <button role="tab" id="t-scan" aria-selected="false" onclick="show('scan')">Staff scanner</button>
+  <button role="tab" id="t-admin" aria-selected="false" onclick="show('admin')">Council admin</button>
+</div>
+
+<!-- PASS -->
+<section class="panel on" id="p-pass" role="tabpanel" aria-labelledby="t-pass">
+  <div class="card">
+    <div class="passhead">
+      <div><div class="who" id="passname">—</div><div class="sub">Mount Wise Pools · Tier 0 (no photo held)</div></div>
+      <span class="chip active" id="chip">—</span>
+    </div>
+    <div class="qrwrap">
+      <div class="qrbox" id="qrbox"><div id="qr"></div><div class="deadstamp" id="deadstamp">Barred</div></div>
+      <div class="tide">
+        <div class="tidefill" id="tidefill"></div>
+        <div class="tidetext">
+          <div><div class="lbl">Refreshes in</div><div class="secs" id="secs">–</div></div>
+          <div class="note">A shared screenshot stops working when the code refreshes.</div>
+        </div>
+      </div>
+    </div>
+    <div class="meta" id="passmeta">Token rotates every 15s and is signed and validated by the server.</div>
+    <div class="notice" id="notice"></div>
+  </div>
+</section>
+
+<!-- SCANNER -->
+<section class="panel" id="p-scan" role="tabpanel" aria-labelledby="t-scan">
+  <div class="card">
+    <p class="sectitle">Gate scanner</p>
+    <p class="secsub">Camera reads the pass; the server checks signature, expiry, live status and site.</p>
+    <div id="reader"></div>
+    <button class="btn" id="cambtn" onclick="toggleCam()">Start camera</button>
+    <div class="scanstage" id="stage"><div class="idle">Start the camera and point it at a pass.</div></div>
+    <div class="field"><label>No camera? Paste a token to test</label>
+      <input id="manualtok" placeholder="paste token here">
+      <button class="btn ghost" onclick="manualScan()">Check pasted token</button>
+    </div>
+  </div>
+</section>
+
+<!-- ADMIN -->
+<section class="panel" id="p-admin" role="tabpanel" aria-labelledby="t-admin">
+  <div class="card">
+    <p class="sectitle">Council enforcement</p>
+    <p class="secsub">Records the infraction and applies a graduated consequence. Takes effect on the next scan.</p>
+    <p class="statusline" id="adminstatus">—</p>
+
+    <div class="field"><label>Infraction type</label>
+      <select id="infr">
+        <option>Running on poolside</option>
+        <option>Dangerous diving into occupied water</option>
+        <option>Ignoring lifeguard instructions</option>
+        <option>Horseplay / rough play</option>
+        <option>Verbal abuse or threats to staff</option>
+        <option>Damage to property</option>
+        <option>Other (see note)</option>
+      </select>
+    </div>
+    <div class="field"><label>Note (what happened)</label>
+      <textarea id="note" placeholder="e.g. Repeatedly ran and pushed others near the deep end after two verbal warnings."></textarea>
+    </div>
+    <div class="field"><label>Bar length</label>
+      <select id="dur">
+        <option data-secs="30">30 seconds (demo — watch it auto-lift)</option>
+        <option data-secs="86400">1 day</option>
+        <option data-secs="172800">2 days</option>
+        <option data-secs="259200">3 days</option>
+        <option data-secs="604800">1 week</option>
+        <option data-secs="1209600">2 weeks</option>
+        <option data-secs="1814400">3 weeks</option>
+        <option data-secs="2419200">4 weeks</option>
+        <option data-secs="4838400">8 weeks</option>
+        <option data-secs="7776000">3 months</option>
+        <option data-secs="15552000">6 months</option>
+        <option data-secs="31536000">1 year</option>
+        <option data-secs="perm">Permanent ban</option>
+      </select>
+    </div>
+
+    <button class="btn a-bar" onclick="applyBar()">Apply bar</button>
+    <div class="row">
+      <button class="btn a-warn" onclick="logWarning()">Log warning only</button>
+      <button class="btn a-reinstate" onclick="reinstate()">Reinstate</button>
+    </div>
+
+    <hr>
+    <p class="sectitle" style="font-size:15px">Incident history</p>
+    <div class="hist" id="hist"></div>
+  </div>
+</section>
+
+<script>
+// ============================== CONFIG ==============================
+const SUPABASE_URL      = "https://YOUR-PROJECT.supabase.co";
+const SUPABASE_ANON_KEY = "YOUR-ANON-PUBLIC-KEY";
+const SITE              = "mountwise";   // scanner's site scope
+const ROTATE_MS         = 15000;         // QR refresh cadence (spec: 30–60s)
+const TTL_SECONDS       = 20;            // token lifetime (a little > rotate)
+// ===================================================================
+
+(function(){
+  "use strict";
+  const configured = !SUPABASE_URL.includes("YOUR-PROJECT") && !SUPABASE_ANON_KEY.includes("YOUR-ANON");
+  if(!configured){ document.getElementById("banner").classList.add("on"); }
+  const sb = configured ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+  let currentPassId=null, token=null, issuedAt=0, qr=null, resetTimer=null;
+  let rotateTimer=null, statusTimer=null, scanner=null, lastScanAt=0, camOn=false;
+
+  const $=id=>document.getElementById(id);
+
+  // ---------- pass selector ----------
+  async function loadPasses(){
+    if(!sb) return;
+    const {data,error}=await sb.rpc("list_passes");
+    if(error){ console.error(error); return; }
+    const sel=$("passpick"); sel.innerHTML="";
+    (data||[]).forEach(p=>{
+      const o=document.createElement("option"); o.value=p.id; o.textContent=p.display_name; sel.appendChild(o);
+    });
+    if(data&&data.length){ currentPassId=data[0].id; await refreshAll(); }
+  }
+  window.onPickPass=async function(){ currentPassId=$("passpick").value; await refreshAll(); };
+
+  async function refreshAll(){ await rotate(); await pollStatus(); await loadHistory(); }
+
+  // ---------- citizen pass ----------
+  function renderQR(){
+    const el=$("qr");
+    if(!window.QRCode){ el.textContent="QR library offline"; return; }
+    if(!qr){ qr=new QRCode(el,{text:token,width:200,height:200,correctLevel:QRCode.CorrectLevel.M}); }
+    else { qr.clear(); qr.makeCode(token); }
+  }
+  async function rotate(){
+    if(!sb||!currentPassId) return;
+    const {data,error}=await sb.rpc("issue_pass_token",{p_pass_id:currentPassId,p_ttl_seconds:TTL_SECONDS});
+    if(error){ console.error(error); return; }
+    token=data; issuedAt=Date.now(); renderQR();
+  }
+  function tick(){
+    if(!issuedAt) return;
+    const left=Math.max(0,(ROTATE_MS-(Date.now()-issuedAt))/1000);
+    $("secs").textContent=Math.ceil(left);
+    $("tidefill").style.height=(left/(ROTATE_MS/1000)*100)+"%";
+  }
+  function applyChip(p){
+    const chip=$("chip"); chip.className="chip "+(p?p.status:"");
+    chip.textContent=p?(p.status.charAt(0).toUpperCase()+p.status.slice(1)):"—";
+    $("passname").textContent=p?p.display_name:"—";
+    const dead=p&&p.status!=="active";
+    $("qrbox").classList.toggle("dead",!!dead);
+    $("deadstamp").textContent = p&&p.status==="revoked" ? "Revoked" : "Paused";
+    renderNotice(p);
+  }
+  function renderNotice(p){
+    const box=$("notice");
+    if(!p||p.status==="active"){ box.style.display="none"; box.innerHTML=""; box.className="notice"; return; }
+    box.style.display="block";
+    const infr = p.reason_infraction ? esc(p.reason_infraction) : "Conduct at the facility";
+    const note = p.reason_note ? '<div class="n-note">“'+esc(p.reason_note)+'”</div>' : "";
+    if(p.status==="suspended"){
+      box.className="notice suspended";
+      const ret = p.suspended_until ? fmtFull(p.suspended_until) : "—";
+      box.innerHTML='<div class="n-title">Your pass is paused</div>'+
+        '<div class="n-line">You can return on <b>'+esc(ret)+'</b>.</div>'+
+        '<div class="n-line">Reason: <b>'+infr+'</b></div>'+note+
+        '<div class="n-foot">Questions? Speak to pool staff, or use the appeal link in your notice.</div>';
+    } else {
+      box.className="notice revoked";
+      box.innerHTML='<div class="n-title">Your pass has been revoked</div>'+
+        '<div class="n-line">Reason: <b>'+infr+'</b></div>'+note+
+        '<div class="n-line">This is a permanent bar.</div>'+
+        '<div class="n-foot">You can appeal using the link in your revocation notice.</div>';
+    }
+  }
+  async function pollStatus(){
+    if(!sb||!currentPassId) return;
+    const {data}=await sb.rpc("get_pass",{p_pass_id:currentPassId});
+    applyChip(data); applyAdminStatus(data);
+  }
+
+  // ---------- scanner ----------
+  const REASON={
+    invalid_or_expired:"Code expired — ask them to refresh their pass",
+    revoked:"Pass revoked — entry barred",
+    suspended:"Suspended — entry barred",
+    wrong_site:"Not valid at this site",
+    not_found:"Pass not found",
+    bad_signature:"Invalid code", malformed:"Invalid code", no_code:"No code read"
+  };
+  function showResult(r){
+    const stage=$("stage");
+    if(r&&r.result==="ALLOW"){
+      stage.className="scanstage allow";
+      stage.innerHTML='<div class="result allow"><div class="mark">✓</div><div class="verdict">Welcome in</div>'+
+        '<div class="detail">'+esc(r.display_name||"")+'</div><div class="sub">Tier 0 · no photo on file · pass active</div></div>';
+    } else {
+      const reason=r?r.reason:"error";
+      let sub=r&&r.until?("until "+fmt(r.until)):("reason: "+reason);
+      stage.className="scanstage deny";
+      stage.innerHTML='<div class="result deny"><div class="mark">✕</div><div class="verdict">Entry barred</div>'+
+        '<div class="detail">'+(REASON[reason]||"Denied")+'</div><div class="sub">'+esc(sub)+'</div></div>';
+    }
+    clearTimeout(resetTimer);
+    resetTimer=setTimeout(()=>{stage.className="scanstage";stage.innerHTML='<div class="idle">Point the camera at a pass.</div>';},4500);
+  }
+  async function doValidate(tok){
+    if(!sb){ showResult({result:"DENY",reason:"no_code"}); return; }
+    const {data,error}=await sb.rpc("validate_scan",{p_token:tok,p_scanner_site:SITE});
+    if(error){ console.error(error); showResult({result:"DENY",reason:"error"}); return; }
+    showResult(data);
+  }
+  window.manualScan=function(){ const t=$("manualtok").value.trim(); if(t) doValidate(t); };
+
+  async function onDecode(text){
+    const now=Date.now(); if(now-lastScanAt<2500) return; lastScanAt=now;
+    await doValidate(text);
+  }
+  window.toggleCam=async function(){
+    if(!window.Html5Qrcode){ alert("Scanner library offline."); return; }
+    if(camOn){
+      try{ await scanner.stop(); }catch(e){} camOn=false; $("cambtn").textContent="Start camera"; return;
+    }
+    try{
+      scanner=scanner||new Html5Qrcode("reader");
+      await scanner.start({facingMode:"environment"},{fps:10,qrbox:220},onDecode);
+      camOn=true; $("cambtn").textContent="Stop camera";
+    }catch(e){ alert("Camera failed: "+e+"\nThe page must be served over HTTPS for camera access."); }
+  };
+
+  // ---------- admin ----------
+  function applyAdminStatus(p){
+    if(!p){ $("adminstatus").textContent="—"; return; }
+    let s="Pass <b>"+esc(p.display_name)+"</b> is currently <b>"+p.status+"</b>";
+    if(p.status==="suspended"&&p.suspended_until) s+=" until <b>"+fmt(p.suspended_until)+"</b>";
+    $("adminstatus").innerHTML=s+".";
+  }
+  function durSel(){ const o=$("dur").selectedOptions[0]; return {secs:o.dataset.secs,label:o.textContent}; }
+  async function callEnforce(action, secs, label){
+    if(!sb||!currentPassId) return;
+    const {error}=await sb.rpc("enforce",{
+      p_pass_id:currentPassId, p_action:action,
+      p_infraction_type:$("infr").value, p_note:$("note").value||null,
+      p_duration_seconds:secs, p_duration_label:label
+    });
+    if(error){ alert("Action failed: "+error.message); return; }
+    $("note").value="";
+    await pollStatus(); await loadHistory();
+  }
+  window.applyBar=function(){
+    const d=durSel();
+    if(d.secs==="perm") callEnforce("revoke",null,"Permanent ban");
+    else callEnforce("suspend",parseInt(d.secs,10),d.label);
+  };
+  window.logWarning=function(){ callEnforce("warning",null,null); };
+  window.reinstate=function(){ callEnforce("reinstate",null,null); };
+
+  async function loadHistory(){
+    if(!sb||!currentPassId) return;
+    const {data}=await sb.rpc("list_incidents",{p_pass_id:currentPassId});
+    const box=$("hist");
+    if(!data||!data.length){ box.innerHTML='<div class="empty">No incidents recorded.</div>'; return; }
+    box.innerHTML=data.map(i=>{
+      const dur=i.duration_label?(" · "+esc(i.duration_label)):"";
+      const note=i.note?('<div class="nt">“'+esc(i.note)+'”</div>'):"";
+      const infr=i.infraction_type?('<div class="infr">'+esc(i.infraction_type)+dur+'</div>'):"";
+      return '<div class="item"><div class="top"><span class="act '+i.action+'">'+i.action+
+        '</span><span class="when">'+fmt(i.created_at)+'</span></div>'+infr+note+'</div>';
+    }).join("");
+  }
+
+  // ---------- helpers ----------
+  function fmt(ts){ if(!ts) return ""; const d=new Date(ts);
+    return d.toLocaleString(undefined,{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}); }
+  function fmtFull(ts){ if(!ts) return ""; const d=new Date(ts);
+    return d.toLocaleString(undefined,{weekday:"long",day:"numeric",month:"long",hour:"2-digit",minute:"2-digit"}); }
+  function esc(s){ return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+
+  window.show=function(name){
+    ["pass","scan","admin"].forEach(n=>{
+      const on=(n===name);
+      $("p-"+n).classList.toggle("on",on);
+      $("t-"+n).setAttribute("aria-selected",on?"true":"false");
+    });
+    if(name!=="scan"&&camOn&&scanner){ scanner.stop().catch(()=>{}); camOn=false; $("cambtn").textContent="Start camera"; }
+    if(name==="admin") loadHistory();
+  };
+
+  // ---------- boot ----------
+  if(sb){
+    loadPasses();
+    rotateTimer=setInterval(rotate,ROTATE_MS);
+    statusTimer=setInterval(pollStatus,3000);
+    setInterval(tick,200);
+  }
+})();
+</script>
+</body>
+</html>

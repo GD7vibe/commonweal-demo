@@ -1,0 +1,10 @@
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/
+
+# local notes / secrets — keep real keys out of the repo
+*.local
+secrets.txt
